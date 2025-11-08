@@ -24,18 +24,20 @@ fields = ['svid', 'codeType', 'timeNanos', 'biasNanos', 'constellationType', 'sv
 latest_measurement = None
 latest_position = None
 latest_spoofed_sats = None
+all_positions = None
 
 @app.route('/latest_data', methods=['GET'])
 def latest_data():
     return jsonify({
         "measurement": latest_measurement,
         "position": latest_position,
+	"all_positions": all_positions,
         "spoofed_satellites": latest_spoofed_sats
     })
 
 @app.route('/gnssdata', methods=['POST'])
 def receive_gnss_data():
-    global latest_measurement, latest_position, latest_spoofed_sats
+    global latest_measurement, latest_position, latest_spoofed_sats, all_positions
     measurements = request.get_json()
     print("Received GNSS measurements:", measurements)
     
@@ -99,6 +101,10 @@ def receive_gnss_data():
                 "spoofed_satellites": spoofed_sats.index.tolist()
             }
             positions.append(lla)
+            if all_positions is None:
+                all_positions = {}
+            all_positions[constellation] = lla
+            print('!!!', constellation, lla)
         except np.linalg.LinAlgError:
             print(f"Singular matrix encountered for constellation {constellation}. Skipping this calculation.")
             continue
