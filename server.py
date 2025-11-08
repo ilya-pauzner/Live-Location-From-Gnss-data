@@ -81,7 +81,7 @@ def receive_gnss_data():
         sv_position = sv_position.drop('Sat.bias', axis=1)
 
         spoofed_sats = parser.detect_spoofing(sv_position)
-        non_spoofed_svs = sv_position.drop(spoofed_sats)
+        non_spoofed_svs = sv_position #.drop(spoofed_sats)
 
         if len(non_spoofed_svs) < 4:
             print(f"Error: Not enough satellites to calculate position for constellation {constellation} after excluding spoofed satellites")
