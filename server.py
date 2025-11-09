@@ -1,7 +1,9 @@
 from flask import Flask, request, jsonify
 import csv
 import os
+from datetime import datetime
 from Parser import Parser
+from ephemeris_manager import EphemerisManager
 import navpy
 import numpy as np
 import warnings
@@ -31,7 +33,7 @@ def latest_data():
     return jsonify({
         "measurement": latest_measurement,
         "position": latest_position,
-	"all_positions": all_positions,
+        "all_positions": all_positions,
         "spoofed_satellites": latest_spoofed_sats
     })
 
@@ -136,4 +138,8 @@ def receive_gnss_navdata():
     return jsonify({"status": "success"}), 200
 
 if __name__ == '__main__':
+    # pre-heat
+    ephemerisManager = EphemerisManager(data_directory)
+    ephemerisManager.load_data(datetime.now())
+
     app.run(host='0.0.0.0', port=2121)
