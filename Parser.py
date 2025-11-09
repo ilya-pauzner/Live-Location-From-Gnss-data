@@ -49,7 +49,7 @@ class Parser:
         fromNameToLetter = {v: k for k, v in CONSTELLATION_CHARS.items()}
         fromNumberToName = CONSTELLATION_ANDROID
 
-        measurements.loc[:, 'Constellation'] = measurements.loc[:, 'Constellation'].map(fromNumberToName).map(fromNameToLetter)
+        measurements['Constellation'] = measurements['Constellation'].map(fromNumberToName).map(fromNameToLetter)
         measurements['satPRN'] = measurements['Constellation'] + measurements['Svid']
 
         measurements['Cn0DbHz'] = pd.to_numeric(measurements['cn0DbHz'])
