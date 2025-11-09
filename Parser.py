@@ -37,16 +37,16 @@ class Parser:
         
         measurements['Svid'] = measurements['svid'].apply(lambda x: f"{int(x):02d}")
 
-        # ? = UNKNOWN = 0
-        # G = GPS = 1
-        # S = SBAS = 2
-        # R = GLONASS = 3
-        # J = QZSS = 4
-        # C = BEIDOU = 5
-        # E = GALILEO = 6
-        # I = IRNSS = 7
+        # ? = unknown = 0
+        # G = gps = 1
+        # S = sbas = 2
+        # R = glonass = 3
+        # J = qzss = 4
+        # C = beidou = 5
+        # E = galileo = 6
+        # I = irnss = 7
 
-        fromNameToLetter = dict(v, k for k, v in CONSTELLATION_CHARS)
+        fromNameToLetter = {v: k for k, v in CONSTELLATION_CHARS.items()}
         fromNumberToName = CONSTELLATION_ANDROID
 
         measurements.loc[:, 'Constellation'] = measurements.loc[:, 'Constellation'].map(fromNumberToName).map(fromNameToLetter)
