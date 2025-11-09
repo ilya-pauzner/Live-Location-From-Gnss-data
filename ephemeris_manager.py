@@ -37,7 +37,9 @@ class EphemerisManager():
 
     def load_data(self, timestamp, constellations=None):
         data_list = []
-        constellations_converted = [CONSTELLATION_CHARS[constellation] for constellation in constellations]
+        constellations_converted = None
+        if constellations:
+            constellations_converted = [CONSTELLATION_CHARS[constellation] for constellation in constellations]
         files = load_ephemeris(file_type="rinex_nav", gps_millis=Time(timestamp).gps * 1000, constellations=constellations_converted, download_directory="ephemeris_data")
         for file in files:
             data_list.append(self.read_ephemeris(file, constellations=constellations))
@@ -97,4 +99,5 @@ class EphemerisManager():
 if __name__ == '__main__':
     repo = EphemerisManager()
     target_time = datetime(2025, 11, 9, 12, 0, 0, tzinfo=timezone.utc)
+    repo.load_data(target_time)
     data = repo.get_ephemeris(target_time, ['G01', 'G03'])
