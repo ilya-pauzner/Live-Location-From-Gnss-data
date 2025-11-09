@@ -54,11 +54,8 @@ class EphemerisManager():
         if not self.leapseconds:
             self.leapseconds = EphemerisManager.load_leapseconds(
                 decompressed_filename)
-        if constellations:
-            data = georinex.load(decompressed_filename,
-                                 use=constellations).to_dataframe()
-        else:
-            data = georinex.load(decompressed_filename).to_dataframe()
+        # TODO: use constellations, for some reason {'gps'} leads to empty df
+        data = georinex.load(decompressed_filename).to_dataframe()
         data.dropna(how='all', inplace=True)
         data.reset_index(inplace=True)
         data['source'] = decompressed_filename
@@ -95,5 +92,5 @@ class EphemerisManager():
 
 if __name__ == '__main__':
     repo = EphemerisManager()
-    target_time = datetime(2021, 1, 9, 12, 0, 0, tzinfo=timezone.utc)
+    target_time = datetime(2025, 11, 9, 12, 0, 0, tzinfo=timezone.utc)
     data = repo.get_ephemeris(target_time, ['G01', 'G03'])
