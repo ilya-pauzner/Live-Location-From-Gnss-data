@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 from scipy.optimize import least_squares
-from empheris_manager import EphemerisManager
+from ephemeris_manager import EphemerisManager
 import simplekml
 
 class Parser:

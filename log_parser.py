@@ -5,7 +5,7 @@ import csv
 import numpy as np
 import pandas as pd
 
-from empheris_manager import EphemerisManager
+from ephemeris_manager import EphemerisManager
 
 parent_directory = os.path.split(os.getcwd())[0]
 ephemeris_data_directory = os.path.join(parent_directory, 'data')
