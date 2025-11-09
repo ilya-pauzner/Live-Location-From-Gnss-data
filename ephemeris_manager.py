@@ -4,6 +4,7 @@ import georinex
 import pandas as pd
 import numpy as np
 from gnss_lib_py.utils.ephemeris_downloader import load_ephemeris
+from gnss_lib_py.utils.constants import CONSTELLATION_CHARS
 from astropy.time import Time
 
 
@@ -35,7 +36,6 @@ class EphemerisManager():
         return self.leapseconds
 
     def load_data(self, timestamp, constellations=None):
-        # TODO: pick constellations?
         data_list = []
         files = load_ephemeris(file_type="rinex_nav", gps_millis=Time(timestamp).gps * 1000, constellations=constellations, download_directory="ephemeris_data")
         for file in files:
@@ -84,7 +84,7 @@ class EphemerisManager():
         if type(satellites) is list:
             systems = set()
             for sat in satellites:
-                systems.add(sat[0])
+                systems.add(CONSTELLATION_CHARS[sat[0]])
             return systems
         else:
             return None
