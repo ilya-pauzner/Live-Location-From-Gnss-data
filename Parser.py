@@ -5,6 +5,7 @@ import numpy as np
 from scipy.optimize import least_squares
 from ephemeris_manager import EphemerisManager
 import simplekml
+from gnss_lib_py.utils.constants import CONSTELLATION_ANDROID, CONSTELLATION_CHARS
 
 class Parser:
     LIGHTSPEED = 2.99792458e8
@@ -35,11 +36,20 @@ class Parser:
                 return pd.DataFrame()
         
         measurements['Svid'] = measurements['svid'].apply(lambda x: f"{int(x):02d}")
-        measurements.loc[measurements['constellationType'] == '1', 'Constellation'] = 'G'
-        measurements.loc[measurements['constellationType'] == '3', 'Constellation'] = 'R'
-        measurements.loc[measurements['constellationType'] == '4', 'Constellation'] = 'E'
-        measurements.loc[measurements['constellationType'] == '6', 'Constellation'] = 'C'
-        measurements.loc[measurements['constellationType'] == '5', 'Constellation'] = 'J'
+
+        # ? = UNKNOWN = 0
+        # G = GPS = 1
+        # S = SBAS = 2
+        # R = GLONASS = 3
+        # J = QZSS = 4
+        # C = BEIDOU = 5
+        # E = GALILEO = 6
+        # I = IRNSS = 7
+
+        fromNameToLetter = dict(v, k for k, v in CONSTELLATION_CHARS)
+        fromNumberToName = CONSTELLATION_ANDROID
+
+        measurements.loc[:, 'Constellation'] = measurements.loc[:, 'Constellation'].map(fromNumberToName).map(fromNameToLetter)
         measurements['satPRN'] = measurements['Constellation'] + measurements['Svid']
 
         measurements['Cn0DbHz'] = pd.to_numeric(measurements['cn0DbHz'])
