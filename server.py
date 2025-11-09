@@ -28,6 +28,9 @@ latest_position = None
 latest_spoofed_sats = None
 all_positions = None
 
+# very much not ideal, (e.g. race conditions), but reading every time anew takes too long
+ephemerisManager = None
+
 @app.route('/latest_data', methods=['GET'])
 def latest_data():
     return jsonify({
@@ -56,6 +59,8 @@ def receive_gnss_data():
             writer.writerow(filtered_measurement)
     
     parser = Parser(data_directory)
+    parser.manager = ephemerisManager
+
     measurements = parser.open_file(data_file)
     measurements = parser.formatDF(measurements)
     
