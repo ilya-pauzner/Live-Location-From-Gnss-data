@@ -8,6 +8,7 @@ import georinex
 import unlzw3
 import pandas as pd
 import numpy as np
+from gnss_lib_py.utils.ephemeris_downloader import load_ephemeris
 
 
 class EphemerisManager():
@@ -38,33 +39,11 @@ class EphemerisManager():
         return self.leapseconds
 
     def load_data(self, timestamp, constellations=None):
-        filepaths = EphemerisManager.get_filepaths(timestamp)
+        # TODO: pick constellations?
         data_list = []
-        timestamp_age = datetime.now(timezone.utc) - timestamp
-        if constellations is None:
-            for fileinfo in filepaths.values():
-                data = self.get_ephemeris_dataframe(fileinfo)
-                data_list.append(data)
-        else:
-            legacy_systems = set(['G', 'R'])
-            legacy_systems_only = len(constellations - legacy_systems) == 0
-            if timestamp_age.days > 0:
-                if legacy_systems_only:
-                    data_list.append(self.get_ephemeris_dataframe(
-                        filepaths['nasa_daily_gps']))
-                    if 'R' in constellations:
-                        data_list.append(self.get_ephemeris_dataframe(
-                            filepaths['nasa_daily_glonass']))
-                else:
-                    data_list.append(self.get_ephemeris_dataframe(
-                        filepaths['nasa_daily_combined']))
-            else:   
-                data_list.append(self.get_ephemeris_dataframe(
-                    filepaths['nasa_daily_gps']))
-                if not legacy_systems_only:
-                    data_list.append(self.get_ephemeris_dataframe(
-                        filepaths['bkg_daily_combined']))
-                    
+        files = load_ephemeris(file_type="rinex_nav", gps_millis=timestamp, constellations=constellations, download_directory="ephemeris_data")
+        for file in files:
+            data_list.append(self.read_ephemeris(file))
         if data_list:
             data = pd.concat(data_list, ignore_index=True)
         else:
@@ -73,6 +52,27 @@ class EphemerisManager():
         data.reset_index(drop=True, inplace=True)
         data.sort_values('time', inplace=True, ignore_index=True)
         self.data = data
+        
+        
+    def read_ephemeris(self, decompressed_filename):
+        if not self.leapseconds:
+            self.leapseconds = EphemerisManager.load_leapseconds(
+                decompressed_filename)
+        if constellations:
+            data = georinex.load(decompressed_filename,
+                                 use=constellations).to_dataframe()
+        else:
+            data = georinex.load(decompressed_filename).to_dataframe()
+        data.dropna(how='all', inplace=True)
+        data.reset_index(inplace=True)
+        data['source'] = decompressed_filename
+        WEEKSEC = 604800
+        data['t_oc'] = pd.to_numeric(data['time'] - datetime(1980, 1, 6, 0, 0, 0))
+        data['t_oc']  = 1e-9 * data['t_oc'] - WEEKSEC * np.floor(1e-9 * data['t_oc'] / WEEKSEC)
+        data['time'] = data['time'].dt.tz_localize('UTC')
+        data.rename(columns={'M0': 'M_0', 'Eccentricity': 'e', 'Toe': 't_oe', 'DeltaN': 'deltaN', 'Cuc': 'C_uc', 'Cus': 'C_us',
+                             'Cic': 'C_ic', 'Crc': 'C_rc', 'Cis': 'C_is', 'Crs': 'C_rs', 'Io': 'i_0', 'Omega0': 'Omega_0'}, inplace=True)
+        return data
 
 
     def get_ephemeris_dataframe(self, fileinfo, constellations=None):
@@ -97,24 +97,7 @@ class EphemerisManager():
             except ftplib.error_perm:
                 print('ftp error')
                 return pd.DataFrame()
-        if not self.leapseconds:
-            self.leapseconds = EphemerisManager.load_leapseconds(
-                decompressed_filename)
-        if constellations:
-            data = georinex.load(decompressed_filename,
-                                 use=constellations).to_dataframe()
-        else:
-            data = georinex.load(decompressed_filename).to_dataframe()
-        data.dropna(how='all', inplace=True)
-        data.reset_index(inplace=True)
-        data['source'] = decompressed_filename
-        WEEKSEC = 604800
-        data['t_oc'] = pd.to_numeric(data['time'] - datetime(1980, 1, 6, 0, 0, 0))
-        data['t_oc']  = 1e-9 * data['t_oc'] - WEEKSEC * np.floor(1e-9 * data['t_oc'] / WEEKSEC)
-        data['time'] = data['time'].dt.tz_localize('UTC')
-        data.rename(columns={'M0': 'M_0', 'Eccentricity': 'e', 'Toe': 't_oe', 'DeltaN': 'deltaN', 'Cuc': 'C_uc', 'Cus': 'C_us',
-                             'Cic': 'C_ic', 'Crc': 'C_rc', 'Cis': 'C_is', 'Crs': 'C_rs', 'Io': 'i_0', 'Omega0': 'Omega_0'}, inplace=True)
-        return data
+        return read_ephemeris(self, decompressed_filename)
 
     @staticmethod
     def get_filetype(timestamp):
