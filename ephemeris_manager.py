@@ -37,7 +37,8 @@ class EphemerisManager():
 
     def load_data(self, timestamp, constellations=None):
         data_list = []
-        files = load_ephemeris(file_type="rinex_nav", gps_millis=Time(timestamp).gps * 1000, constellations=constellations, download_directory="ephemeris_data")
+        constellations_converted = [CONSTELLATION_CHARS[constellation] for constellation in constellations]
+        files = load_ephemeris(file_type="rinex_nav", gps_millis=Time(timestamp).gps * 1000, constellations=constellations_converted, download_directory="ephemeris_data")
         for file in files:
             data_list.append(self.read_ephemeris(file, constellations=constellations))
         if data_list:
@@ -54,8 +55,11 @@ class EphemerisManager():
         if not self.leapseconds:
             self.leapseconds = EphemerisManager.load_leapseconds(
                 decompressed_filename)
-        # TODO: use constellations, for some reason {'gps'} leads to empty df
-        data = georinex.load(decompressed_filename).to_dataframe()
+        if constellations:
+            data = georinex.load(decompressed_filename,
+                                 use=constellations).to_dataframe()
+        else:
+            data = georinex.load(decompressed_filename).to_dataframe()
         data.dropna(how='all', inplace=True)
         data.reset_index(inplace=True)
         data['source'] = decompressed_filename
@@ -81,7 +85,7 @@ class EphemerisManager():
         if type(satellites) is list:
             systems = set()
             for sat in satellites:
-                systems.add(CONSTELLATION_CHARS[sat[0]])
+                systems.add(sat[0])
             return systems
         else:
             return None
