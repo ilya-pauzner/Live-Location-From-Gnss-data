@@ -7,6 +7,7 @@ from ephemeris_manager import EphemerisManager
 import navpy
 import numpy as np
 import warnings
+from android_rinex import gnsslogger_to_rnx
 
 # Suppress all warnings
 warnings.filterwarnings("ignore")
@@ -16,11 +17,15 @@ data_directory = os.path.join(os.getcwd(), 'data')
 if not os.path.exists(data_directory):
     os.makedirs(data_directory)
 
+def convert(s):
+    return s[0].upper() + s[1:]
+
 data_file = os.path.join(data_directory, 'gnss_data.csv')
 fields = ['svid', 'codeType', 'timeNanos', 'biasNanos', 'constellationType', 'svid', 
           'accumulatedDeltaRangeState', 'receivedSvTimeNanos', 'pseudorangeRateUncertaintyMetersPerSecond', 
           'accumulatedDeltaRangeMeters', 'accumulatedDeltaRangeUncertaintyMeters', 'carrierFrequencyHz', 
           'receivedSvTimeUncertaintyNanos', 'cn0DbHz', 'fullBiasNanos', 'multipathIndicator', 'timeOffsetNanos', 'state', 'pseudorangeRateMetersPerSecond']
+converted_fields = ['Raw'] + list(map(convert, fields))
 
 # Global variables to store the latest data
 latest_measurement = None
@@ -51,6 +56,23 @@ def receive_gnss_data():
     
     latest_measurement = measurements[-1] if measurements else None
 
+    SCRATCH = 'quasi-android'
+    with open(SCRATCH, 'w', newline='') as csvfile:
+        print('# ', file=csvfile)
+        print('# Header Description:', file=csvfile)
+        print('# ', file=csvfile)
+        print('# Version: v9.9.9.9 Platform: 99 Manufacturer: A Model: a9999 GNSS Hardware Model Name: qcom;M9', file=csvfile)
+        print('# ', file=csvfile)
+        print('# ', file=csvfile, end='')
+        writer = csv.DictWriter(csvfile, fieldnames=converted_fields)
+        writer.writeheader()
+        print('# ', file=csvfile)
+        for measurement in measurements:
+            filtered_measurement = {convert(key): measurement.get(key, None) for key in fields}
+            filtered_measurement['Raw'] = 'Raw'
+            writer.writerow(filtered_measurement)
+    gnsslogger_to_rnx.convert(SCRATCH)
+
     with open(data_file, 'w', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fields)
         writer.writeheader()
@@ -59,7 +81,7 @@ def receive_gnss_data():
             writer.writerow(filtered_measurement)
     
     parser = Parser(data_directory)
-    parser.manager = ephemerisManager
+    #parser.manager = ephemerisManager
 
     measurements = parser.open_file(data_file)
     measurements = parser.formatDF(measurements)
@@ -145,6 +167,6 @@ def receive_gnss_navdata():
 if __name__ == '__main__':
     # pre-heat
     ephemerisManager = EphemerisManager(data_directory)
-    ephemerisManager.load_data(datetime.now())
+    #ephemerisManager.load_data(datetime(2025, 11, 10, 18, 0, 0))
 
     app.run(host='0.0.0.0', port=2121)
