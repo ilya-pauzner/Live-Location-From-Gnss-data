@@ -1,0 +1,3 @@
+[submodule "android_rinex"]
+	path = android_rinex
+	url = git@github.com:ilya-pauzner/android_rinex.git
