@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify
 import csv
+import glob
 import os
+import subprocess
 from datetime import datetime
 from Parser import Parser
 from ephemeris_manager import EphemerisManager
@@ -8,6 +10,9 @@ import navpy
 import numpy as np
 import warnings
 from android_rinex import gnsslogger_to_rnx
+import pandas as pd
+from gnss_lib_py.utils.ephemeris_downloader import load_ephemeris
+from gnss_lib_py.utils.constants import CONSTELLATION_ANDROID, CONSTELLATION_CHARS
 
 # Suppress all warnings
 warnings.filterwarnings("ignore")
@@ -72,6 +77,44 @@ def receive_gnss_data():
             filtered_measurement['Raw'] = 'Raw'
             writer.writerow(filtered_measurement)
     gnsslogger_to_rnx.convert(SCRATCH)
+    
+    DEFAULT_EPHEM_PATH = os.path.join(os.getcwd(), 'data', 'ephemeris')
+    file_paths = glob.glob(DEFAULT_EPHEM_PATH + '/**/*.rnx', recursive=True)
+    paths_total = set(file_paths)
+    for measurement in measurements:
+        GpsTimeNanos = measurement['timeNanos'] - (measurement['fullBiasNanos'] - measurement['biasNanos'])
+        gps_millis = GpsTimeNanos / 1e6
+        # GLONASS has shift by 3 hours + 18 leap seconds, so just to be sure
+        pathsBefore = load_ephemeris('rinex_nav', gps_millis - 6 * 60 * 60 * 1000, file_paths=paths_total)
+        paths_total.update(pathsBefore)
+        pathsAfter = load_ephemeris('rinex_nav', gps_millis + 6 * 60 * 60 * 1000, file_paths=paths_total)
+        paths_total.update(pathsAfter)
+    
+    subprocess.run(['rnx2rtkp', SCRATCH + '.obs', *paths_total, '-p', '0', '-o', SCRATCH + '.sol'])
+    result = pd.read_csv(SCRATCH + '.sol', comment='%', sep="\\s+", header=None, names = ['week', 'sec', 'lat', 'lon', 'alt', 'Q', 'ns', 'sdn(m)', 'sde(m)', 'sdu(m)', 'sdne(m)', 'sdeu(m)', 'sdun(m)', 'age(s)', 'ratio'])
+    
+    if result.empty:
+        print('Error: rnx2rtkp did not like the data for some reason')
+        return jsonify({"status": "failure", "error": "rnx2rtkp did not like the data for some reason"}), 400
+    position = result.median()
+    latest_position = list(result.median()[['lat', 'lon', 'alt']])
+    
+    all_positions = {}
+    fromNameToLetter = {v: k for k, v in CONSTELLATION_CHARS.items()}
+    fromNumberToName = CONSTELLATION_ANDROID
+    constellationType = set()
+    for measurement in measurements:
+        constellationType.add(fromNameToLetter[fromNumberToName[measurement['constellationType']]])
+    for constellation in constellationType:
+        subprocess.run(['rnx2rtkp', SCRATCH + '.obs', *paths_total, '-p', '0', '-o', SCRATCH + '.sol', '-sys', constellation])
+        result = pd.read_csv(SCRATCH + '.sol', comment='%', sep="\\s+", header=None, names = ['week', 'sec', 'lat', 'lon', 'alt', 'Q', 'ns', 'sdn(m)', 'sde(m)', 'sdu(m)', 'sdne(m)', 'sdeu(m)', 'sdun(m)', 'age(s)', 'ratio'])
+        if not result.empty:
+            all_positions[CONSTELLATION_CHARS[constellation]] = list(result.median()[['lat', 'lon', 'alt']])
+
+    return jsonify({
+        "status": "success",
+        "position": latest_position
+    }), 200    
 
     with open(data_file, 'w', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fields)
