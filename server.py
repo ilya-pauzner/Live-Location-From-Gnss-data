@@ -93,7 +93,7 @@ def receive_gnss_data():
         paths_total.update(pathsAfter)
         paths_useful.update(pathsAfter)   
     
-    subprocess.run(['rnx2rtkp', SCRATCH + '.obs', *paths_useful, '-p', '0', '-o', SCRATCH + '.sol'])
+    subprocess.run(['rnx2rtkp', SCRATCH + '.obs', *paths_useful, '-p', '0', '-o', SCRATCH + '.sol', '-sys', 'G,R,E,J,C,I'])
     result = pd.read_csv(SCRATCH + '.sol', comment='%', sep="\\s+", header=None, names=SOL_FIELDS)
 
     if result.empty:
