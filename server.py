@@ -6,10 +6,11 @@ import tempfile
 import warnings
 
 from android_rinex import gnsslogger_to_rnx
+from astropy.time import Time
 from flask import Flask, request, jsonify
-import pandas as pd
 from gnss_lib_py.utils.ephemeris_downloader import load_ephemeris
 from gnss_lib_py.utils.constants import CONSTELLATION_ANDROID, CONSTELLATION_CHARS
+import pandas as pd
 
 # Suppress all warnings
 warnings.filterwarnings("ignore")
@@ -25,6 +26,7 @@ fields = ['svid', 'codeType', 'timeNanos', 'biasNanos', 'constellationType', 'sv
 converted_fields = ['Raw'] + list(map(convert, fields))
 
 SOL_FIELDS = ['week', 'sec', 'lat', 'lon', 'alt', 'Q', 'ns', 'sdn(m)', 'sde(m)', 'sdu(m)', 'sdne(m)', 'sdeu(m)', 'sdun(m)', 'age(s)', 'ratio']
+DEFAULT_EPHEM_PATH = os.path.join(os.getcwd(), 'data', 'ephemeris')
 
 # Global variables to store the latest data
 latest_measurement = None
@@ -69,7 +71,6 @@ def receive_gnss_data():
     gnsslogger_to_rnx.convert(SCRATCH, SCRATCH + '.obs')
     os.remove(SCRATCH)
     
-    DEFAULT_EPHEM_PATH = os.path.join(os.getcwd(), 'data', 'ephemeris')
     file_paths = glob.glob(DEFAULT_EPHEM_PATH + '/**/*.rnx', recursive=True)
     paths_total = set(file_paths)
     paths_useful = set()
@@ -114,4 +115,13 @@ def receive_gnss_data():
     }), 200
 
 if __name__ == '__main__':
+    # pre-heat
+    gps_millis = Time.now().gps * 1000
+
+    file_paths = glob.glob(DEFAULT_EPHEM_PATH + '/**/*.rnx', recursive=True)
+    paths_total = set(file_paths)
+    pathsBefore = load_ephemeris('rinex_nav', gps_millis - 6 * 60 * 60 * 1000, file_paths=paths_total)
+    paths_total.update(pathsBefore)
+    pathsAfter = load_ephemeris('rinex_nav', gps_millis + 6 * 60 * 60 * 1000, file_paths=paths_total)
+
     app.run(host='0.0.0.0', port=2121)
