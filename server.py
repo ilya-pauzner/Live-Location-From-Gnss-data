@@ -19,6 +19,14 @@ app = Flask(__name__)
 def convert(s):
     return s[0].upper() + s[1:]
 
+def calc_position(df):
+    median = df.median()
+    answer = {}
+    answer['lat'] = round(median['lat'], 5)
+    answer['lon'] = round(median['lon'], 5)
+    answer['alt'] = round(median['alt'])
+    return answer
+
 fields = ['svid', 'codeType', 'timeNanos', 'biasNanos', 'constellationType', 'svid', 
           'accumulatedDeltaRangeState', 'receivedSvTimeNanos', 'pseudorangeRateUncertaintyMetersPerSecond', 
           'accumulatedDeltaRangeMeters', 'accumulatedDeltaRangeUncertaintyMeters', 'carrierFrequencyHz', 
@@ -91,20 +99,21 @@ def receive_gnss_data():
     if result.empty:
         print('Error: rnx2rtkp did not like the data for some reason')
         return jsonify({"status": "failure", "error": "rnx2rtkp did not like the data for some reason"}), 400
-    position = result.median()
-    latest_position = list(result.median()[['lat', 'lon', 'alt']])
-    all_positions['all'] = latest_position
+    latest_position = calc_position(result)
     
     fromNameToLetter = {v: k for k, v in CONSTELLATION_CHARS.items()}
     fromNumberToName = CONSTELLATION_ANDROID
     constellationType = set()
+    constellationName = set()
     for measurement in measurements:
         constellationType.add(fromNameToLetter[fromNumberToName[measurement['constellationType']]])
+        constellationName.add(fromNumberToName[measurement['constellationType']])
+    all_positions['+'.join(sorted(constellationName))] = latest_position
     for constellation in constellationType:
         subprocess.run(['rnx2rtkp', SCRATCH + '.obs', *paths_total, '-p', '0', '-o', SCRATCH + '.sol', '-sys', constellation])
         result = pd.read_csv(SCRATCH + '.sol', comment='%', sep="\\s+", header=None, names = ['week', 'sec', 'lat', 'lon', 'alt', 'Q', 'ns', 'sdn(m)', 'sde(m)', 'sdu(m)', 'sdne(m)', 'sdeu(m)', 'sdun(m)', 'age(s)', 'ratio'])
         if not result.empty:
-            all_positions[CONSTELLATION_CHARS[constellation]] = list(result.median()[['lat', 'lon', 'alt']])
+            all_positions[CONSTELLATION_CHARS[constellation]] = calc_position(result)
 
     os.remove(SCRATCH + '.obs')
     os.remove(SCRATCH + '.sol')
