@@ -109,11 +109,13 @@ def receive_gnss_data():
         constellationType.add(fromNameToLetter[fromNumberToName[measurement['constellationType']]])
         constellationName.add(fromNumberToName[measurement['constellationType']])
     all_positions['+'.join(sorted(constellationName))] = latest_position
-    for constellation in constellationType:
-        subprocess.run(['rnx2rtkp', SCRATCH + '.obs', *paths_total, '-p', '0', '-o', SCRATCH + '.sol', '-sys', constellation])
-        result = pd.read_csv(SCRATCH + '.sol', comment='%', sep="\\s+", header=None, names=SOL_FIELDS)
-        if not result.empty:
-            all_positions[CONSTELLATION_CHARS[constellation]] = calc_position(result)
+
+    if len(constellationType) > 1:
+        for constellation in constellationType:
+            subprocess.run(['rnx2rtkp', SCRATCH + '.obs', *paths_total, '-p', '0', '-o', SCRATCH + '.sol', '-sys', constellation])
+            result = pd.read_csv(SCRATCH + '.sol', comment='%', sep="\\s+", header=None, names=SOL_FIELDS)
+            if not result.empty:
+                all_positions[CONSTELLATION_CHARS[constellation]] = calc_position(result)
 
     os.remove(SCRATCH + '.obs')
     os.remove(SCRATCH + '.sol')
