@@ -22,8 +22,8 @@ def convert(s):
 def calc_position(df):
     median = df.median()
     answer = {}
-    answer['lat'] = round(median['lat'], 5)
-    answer['lon'] = round(median['lon'], 5)
+    answer['lat'] = float(median['lat'].round(5))
+    answer['lon'] = float(median['lon'].round(5))
     answer['alt'] = round(median['alt'])
     return answer
 
