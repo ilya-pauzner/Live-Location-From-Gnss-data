@@ -111,7 +111,7 @@ def receive_gnss_data():
     all_positions['+'.join(sorted(constellationName))] = latest_position
     for constellation in constellationType:
         subprocess.run(['rnx2rtkp', SCRATCH + '.obs', *paths_total, '-p', '0', '-o', SCRATCH + '.sol', '-sys', constellation])
-        result = pd.read_csv(SCRATCH + '.sol', comment='%', sep="\\s+", header=None, names = ['week', 'sec', 'lat', 'lon', 'alt', 'Q', 'ns', 'sdn(m)', 'sde(m)', 'sdu(m)', 'sdne(m)', 'sdeu(m)', 'sdun(m)', 'age(s)', 'ratio'])
+        result = pd.read_csv(SCRATCH + '.sol', comment='%', sep="\\s+", header=None, names=SOL_FIELDS)
         if not result.empty:
             all_positions[CONSTELLATION_CHARS[constellation]] = calc_position(result)
 
