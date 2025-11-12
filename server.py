@@ -31,7 +31,7 @@ DEFAULT_EPHEM_PATH = os.path.join(os.getcwd(), 'data', 'ephemeris')
 # Global variables to store the latest data
 latest_measurement = None
 latest_position = None
-all_positions = None
+all_positions = {}
 
 @app.route('/latest_data', methods=['GET'])
 def latest_data():
@@ -93,8 +93,8 @@ def receive_gnss_data():
         return jsonify({"status": "failure", "error": "rnx2rtkp did not like the data for some reason"}), 400
     position = result.median()
     latest_position = list(result.median()[['lat', 'lon', 'alt']])
+    all_positions['all'] = latest_position
     
-    all_positions = {}
     fromNameToLetter = {v: k for k, v in CONSTELLATION_CHARS.items()}
     fromNumberToName = CONSTELLATION_ANDROID
     constellationType = set()
@@ -109,6 +109,7 @@ def receive_gnss_data():
     os.remove(SCRATCH + '.obs')
     os.remove(SCRATCH + '.sol')
 
+    print(all_positions)
     return jsonify({
         "status": "success",
         "position": latest_position
