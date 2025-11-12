@@ -68,16 +68,19 @@ def receive_gnss_data():
     DEFAULT_EPHEM_PATH = os.path.join(os.getcwd(), 'data', 'ephemeris')
     file_paths = glob.glob(DEFAULT_EPHEM_PATH + '/**/*.rnx', recursive=True)
     paths_total = set(file_paths)
+    paths_useful = set()
     for measurement in measurements:
         GpsTimeNanos = measurement['timeNanos'] - (measurement['fullBiasNanos'] - measurement['biasNanos'])
         gps_millis = GpsTimeNanos / 1e6
         # GLONASS has shift by 3 hours + 18 leap seconds, so just to be sure
         pathsBefore = load_ephemeris('rinex_nav', gps_millis - 6 * 60 * 60 * 1000, file_paths=paths_total)
         paths_total.update(pathsBefore)
+        paths_useful.update(pathsBefore)
         pathsAfter = load_ephemeris('rinex_nav', gps_millis + 6 * 60 * 60 * 1000, file_paths=paths_total)
         paths_total.update(pathsAfter)
+        paths_useful.update(pathsAfter)                
     
-    subprocess.run(['rnx2rtkp', SCRATCH + '.obs', *paths_total, '-p', '0', '-o', SCRATCH + '.sol'])
+    subprocess.run(['rnx2rtkp', SCRATCH + '.obs', *paths_useful, '-p', '0', '-o', SCRATCH + '.sol'])
     result = pd.read_csv(SCRATCH + '.sol', comment='%', sep="\\s+", header=None, names=SOL_FIELDS)
     
     if result.empty:
