@@ -1,10 +1,12 @@
-from flask import Flask, request, jsonify
 import csv
 import glob
 import os
 import subprocess
+import tempfile
 import warnings
+
 from android_rinex import gnsslogger_to_rnx
+from flask import Flask, request, jsonify
 import pandas as pd
 from gnss_lib_py.utils.ephemeris_downloader import load_ephemeris
 from gnss_lib_py.utils.constants import CONSTELLATION_ANDROID, CONSTELLATION_CHARS
@@ -48,7 +50,8 @@ def receive_gnss_data():
     
     latest_measurement = measurements[-1] if measurements else None
 
-    SCRATCH = 'quasi-android'
+    fd, SCRATCH = tempfile.mkstemp()
+    os.close(fd)
     with open(SCRATCH, 'w', newline='') as csvfile:
         print('# ', file=csvfile)
         print('# Header Description:', file=csvfile)
@@ -63,7 +66,8 @@ def receive_gnss_data():
             filtered_measurement = {convert(key): measurement.get(key, None) for key in fields}
             filtered_measurement['Raw'] = 'Raw'
             writer.writerow(filtered_measurement)
-    gnsslogger_to_rnx.convert(SCRATCH)
+    gnsslogger_to_rnx.convert(SCRATCH, SCRATCH + '.obs')
+    os.remove(SCRATCH)
     
     DEFAULT_EPHEM_PATH = os.path.join(os.getcwd(), 'data', 'ephemeris')
     file_paths = glob.glob(DEFAULT_EPHEM_PATH + '/**/*.rnx', recursive=True)
@@ -78,11 +82,11 @@ def receive_gnss_data():
         paths_useful.update(pathsBefore)
         pathsAfter = load_ephemeris('rinex_nav', gps_millis + 6 * 60 * 60 * 1000, file_paths=paths_total)
         paths_total.update(pathsAfter)
-        paths_useful.update(pathsAfter)                
+        paths_useful.update(pathsAfter)   
     
     subprocess.run(['rnx2rtkp', SCRATCH + '.obs', *paths_useful, '-p', '0', '-o', SCRATCH + '.sol'])
     result = pd.read_csv(SCRATCH + '.sol', comment='%', sep="\\s+", header=None, names=SOL_FIELDS)
-    
+
     if result.empty:
         print('Error: rnx2rtkp did not like the data for some reason')
         return jsonify({"status": "failure", "error": "rnx2rtkp did not like the data for some reason"}), 400
@@ -100,6 +104,9 @@ def receive_gnss_data():
         result = pd.read_csv(SCRATCH + '.sol', comment='%', sep="\\s+", header=None, names = ['week', 'sec', 'lat', 'lon', 'alt', 'Q', 'ns', 'sdn(m)', 'sde(m)', 'sdu(m)', 'sdne(m)', 'sdeu(m)', 'sdun(m)', 'age(s)', 'ratio'])
         if not result.empty:
             all_positions[CONSTELLATION_CHARS[constellation]] = list(result.median()[['lat', 'lon', 'alt']])
+
+    os.remove(SCRATCH + '.obs')
+    os.remove(SCRATCH + '.sol')
 
     return jsonify({
         "status": "success",
